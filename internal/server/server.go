@@ -9,11 +9,13 @@ import (
 	"terralist/internal/server/handlers"
 	"terralist/internal/server/repositories"
 	"terralist/internal/server/services"
+	"terralist/internal/server/views"
 	"terralist/pkg/api"
 	"terralist/pkg/auth"
 	"terralist/pkg/auth/jwt"
 	"terralist/pkg/database"
 	"terralist/pkg/storage"
+	"terralist/pkg/webui"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mazen160/go-random"
@@ -56,6 +58,11 @@ func NewServer(userConfig UserConfig, config Config) (*Server, error) {
 	// Apply initial migration
 	if err := config.Database.WithMigration(&InitialMigration{}); err != nil {
 		return nil, fmt.Errorf("could not apply initial migration: %v", err)
+	}
+
+	manager, err := webui.NewManager(views.FS)
+	if err != nil {
+		return nil, fmt.Errorf("could not create a new view manager: %v", err)
 	}
 
 	jwtManager, _ := jwt.New(userConfig.TokenSigningSecret)
@@ -120,6 +127,10 @@ func NewServer(userConfig UserConfig, config Config) (*Server, error) {
 		ProviderEndpoint:      providerController.TerraformApi(),
 	}
 
+	homeController := &controllers.DefaultHomeController{
+		UIManager: manager,
+	}
+
 	return &Server{
 		Port: userConfig.Port,
 
@@ -133,6 +144,7 @@ func NewServer(userConfig UserConfig, config Config) (*Server, error) {
 			loginController,
 			moduleController,
 			providerController,
+			homeController,
 		},
 	}, nil
 }
